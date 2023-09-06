@@ -1,361 +1,284 @@
-'use strict';
+  'use strict';
 
-const templates = {
-  articleLink: Handlebars.compile(document.querySelector('#template-article-link').innerHTML),
-  tagLink: Handlebars.compile(document.querySelector('#template-tag-link').innerHTML),
-  authorLink: Handlebars.compile(document.querySelector('#template-author-link').innerHTML),
-  tagCloudLink: Handlebars.compile(document.querySelector('#template-tag-cloud-link').innerHTML),
-  authorsListLink: Handlebars.compile(document.querySelector('#template-all-authors-link').innerHTML),
-};
+const select = {
+  templateOf: {
+    menuProduct: "#template-menu-product",
+    },
+    containerOf: {
+      menu: '#product-list',
+      cart: '#cart',
+    },
+    all: {
+      menuProducts: '#product-list > .product',
+      menuProductsActive: '#product-list > .product.active',
+      formInputs: 'input, select',
+    },
+    menuProduct: {
+      clickable: '.product__header',
+      form: '.product__order',
+      priceElem: '.product__total-price .price',
+      imageWrapper: '.product__images',
+      amountWidget: '.widget-amount',
+      cartButton: '[href="#add-to-cart"]',
+    },
+    widgets: {
+      amount: {
+        input: 'input[name="amount"]',
+        linkDecrease: 'a[href="#less"]',
+        linkIncrease: 'a[href="#more"]',
 
-function titleClickHandler(event){
-  event.preventDefault();
-  const clickedElement = this;
-  
-  /*[DONE] remove class 'active' from all article links  */
-  const activeLinks = document.querySelectorAll('.titles a.active');
+      },
+    },
+  };
 
-  for(let activeLink of activeLinks){
-    activeLink.classList.remove('active');
-  }
+  const classNames = {
+    menuProduct: {
+      wrapperActive: 'active',
+      imageVisible: 'active',
+    },
+  };
 
-  /*[DONE] add class 'active' to the clicked link */ 
-  clickedElement.classList.add('active');
-
-  /*[DONE] remove class 'active' from all articles */
-  const activeArticles = document.querySelectorAll('.posts .active');
-  for(let activeArticle of activeArticles){
-    activeArticle.classList.remove('active');
-  }
-
-  /*[DONE] get 'href' attribute from the clicked link */
-  const articleSelector = clickedElement.getAttribute('href');
-
-  /*[DONE] find the correct article using the selector (value of 'href' attribute) */
-  const targetArticle = document.querySelector(articleSelector);
-
-  /*[DONE] add class 'active' to the correct article */
-  targetArticle.classList.add('active');
-}
-const 
-  optArticleSelector = '.post',
-  optTitleSelector = '.post-title',
-  optTitleListSelector = '.titles',
-  optArticleTagsSelector = '.post-tags .list',
-  optArticleAuthorSelector = '.post-author',
-  optTagsListSelector = '.tags .list',
-  optCloudClassCount = '5',
-  optCloudClassPrefix = 'tag-size-',
-  optAuthorsListSelector = '.authors.list';
-
-// Titles 
-function generateTitleLinks(customSelector = ''){
-
-  /* remove contents of titleList */
-  const titleList = document.querySelector(optTitleListSelector);
-  titleList.innerHTML = '';
-
-  /* for each article */
-
-  const articles = document.querySelectorAll(optArticleSelector + customSelector);
-
-  let html = '';
-  for(let article of articles){
-
-    /* get the article id */
-    const articleId = article.getAttribute('id');
-
-    /* find the title element */
-    /* get the title from the title element */
-    const articleTitle = article.querySelector(optTitleSelector).innerHTML;
-
-    /* create HTML of the link */
-    //const linkHTML = '<li><a href="#' + articleId + '"><span>' + articleTitle + '</span></a></li>';
-    
-    const linkHTMLData = {id: articleId, title: articleTitle};
-    const linkHTML = templates.articleLink(linkHTMLData);
-
-    /* insert link into titleList */
-    html = html + linkHTML;
-  }
-
-  titleList.innerHTML = html;
-
-  const links = document.querySelectorAll('.titles a');
-  for(let link of links){
-    link.addEventListener('click', titleClickHandler);
-  }
-}
-generateTitleLinks();
-
-// Tags
-function calculateTagsParams(tags){
-  const params = {max: 0, min: 999999};
-
-  for(let tag in tags){
-
-    if(tags[tag] > params.max){
-      params.max = tags[tag];
+  const settings = {
+    amountWidget: {
+      defaultValue: 1,
+      defaultMin: 0,
+      defaultMax: 10,
     }
+  };
 
-    if(tags[tag] < params.min){
-      params.min = tags[tag];
-    }
+  const templates = {
+    menuProduct: Handlebars.compile(document.querySelector(select.templateOf.menuProduct).innerHTML),
+  };
+
+//Constructor
+class AmountWidget{
+  constructor(element){
+    const thisWidget = this;
+    thisWidget.getElements(element);
+
+    if (thisWidget.input.value === '' || thisWidget.input.value === undefined ) {
+      thisWidget.setValue(settings.amountWidget.defaultValue)
+  } else {
+      thisWidget.setValue(thisWidget.input.value);
   }
 
-  return params;
-}
+    thisWidget.initActions();
 
-function calculateTagClass (count, params){
-  const normalizedCount = count - params.min;
-  const normalizedMax = params.max - params.min;
-  const percentage = normalizedCount / normalizedMax;
-  const classNumber = Math.floor( percentage * (optCloudClassCount - 1) + 1 );
+  }
+  getElements(element){
+    const thisWidget = this;
 
-  return optCloudClassPrefix + classNumber;
-}
+    thisWidget.element = element;
+    thisWidget.input = thisWidget.element.querySelector(select.widgets.amount.input);
+    thisWidget.linkDecrease = thisWidget.element.querySelector(select.widgets.amount.linkDecrease);
+    thisWidget.linkIncrease = thisWidget.element.querySelector(select.widgets.amount.linkIncrease);
+    thisWidget.defaultMin = (settings.amountWidget.defaultMin);
+    thisWidget.defaultMax = (settings.amountWidget.defaultMax);
+  }
 
-function generateTags(){
+  setValue(value){
+    const thisWidget = this;
+     let newValue = parseInt(value);
 
-  const optTagsListSelector = '.tags.list';
-  /* [NEW] create a new variable allTags with an empty object */
-  let allTags = {};
+    if( thisWidget.value !== newValue && !isNaN(newValue)) {
+      if (newValue <= thisWidget.defaultMin){
+        newValue =  thisWidget.defaultMin;
 
-  /* find all articles */
-
-  const articles = document.querySelectorAll(optArticleSelector);
-
-  /* START LOOP: for every article: */
-
-  for(let article of articles){
-
-    /* find tags wrapper */
-
-    const titleTag = article.querySelector(optArticleTagsSelector);
-
-    /* make html variable with empty string */
-
-    let html = '';
-
-    /* get tags from data-tags attribute */
-
-    const articleTags = article.getAttribute('data-tags');
-
-    /* split tags into array */
-
-    const articleTagsArray = articleTags.split(' ');
-
-    /* START LOOP: for each tag */
-
-    for(let tag of articleTagsArray){
-      /* generate HTML of the link */
-
-      //const linkHTML = '<li><a href="#tag-' + tag + '">' + tag + '</a></li> ';
-      const linkHTMLData = {id: tag, tagName: tag};
-      const linkHTML = templates.tagLink(linkHTMLData);
-
-      /* add generated code to html variable */
-
-      html = html + linkHTML;
-      /* [NEW] check if this link is NOT already in allTags */
-      if(!allTags.hasOwnProperty(tag)){
-
-        /* [NEW] add tag to allTags objects */
-        allTags[tag] = 1;
-      } else {
-        allTags[tag]++;
+      } if(newValue >= thisWidget.defaultMax){
+        newValue = thisWidget.defaultMax;
       }
-
-      /* END LOOP: for each tag */
+      thisWidget.value = newValue;
     }
+      thisWidget.announce();
+      thisWidget.input.value = thisWidget.value;
 
-    /* insert HTML of all the links into the tags wrapper */
-    titleTag.innerHTML = html;
-    /* END LOOP: for every article: */
   }
-
-  /* [NEW] find list of tags in right column */
-  const tagList = document.querySelector(optTagsListSelector);
-
-  /* [NEW] create variable for all links HTML code */
-  const tagsParams = calculateTagsParams(allTags);
-
-  //let allTagsHTML = '';
-  const allTagsData = {tags: []};
-
-
-  /*[NEW] START LOOP: for each tag in allTags: */
-  for(let tag in allTags){
-    /*[NEW] generate code of a link and add it to allTagsHTML */
-    //allTagsHTML += tagLinkHTML;
-    allTagsData.tags.push({
-      tag: tag,
-      count: allTags[tag],
-      className: calculateTagClass(allTags[tag], tagsParams)
+  initActions(){
+    const thisWidget = this;
+    thisWidget.input.addEventListener('change', function(event) {
+      event.preventDefault();
+      thisWidget.setValue(thisWidget.input.value);
     });
-  
-  /*[NEW] END LOOP: for each tag in allTags */
+      thisWidget.linkDecrease.addEventListener('click', function(value){
+        value.preventDefault();
+        thisWidget.setValue(thisWidget.value - 1);
+
+        });
+        thisWidget.linkIncrease.addEventListener('click', function(value){
+          value.preventDefault();
+          thisWidget.setValue(thisWidget.value + 1);
+
+          });
   }
-  /*[NEW] add HTML for allTagsHTML to tagList: */
-  //tagList.innerHTML = allTagsHTML;
-  tagList.innerHTML = templates.tagCloudLink(allTagsData);
-  console.log(allTagsData);
-}
+  announce(){
+    const thisWidget = this;
 
-generateTags();
-
-function tagClickHandler(event){
-  /* prevent default action for this event */
-  event.preventDefault();
-
-  /* make new constant named "clickedElement" and give it the value of "this" */
-  const clickedElement = this;
-
-  /* make a new constant "href" and read the attribute "href" of the clicked element */
-  const href = clickedElement.getAttribute('href');
-
-  /* make a new constant "tag" and extract tag from the "href" constant */
-  const tag = href.replace('#tag-', '');
-
-  /* find all tag links with class active */
-  const activeTagLinks = document.querySelectorAll('a.active[href^="#tag-"]');
-
-  /* START LOOP: for each active tag link */
-  for(let activeTagLink of activeTagLinks){
-
-    /* remove class active */
-    activeTagLink.classList.remove('active');
-
-  /* END LOOP: for each active tag link */
+    const event = new Event('updated');
+    thisWidget.element.dispatchEvent(event);
   }
-  /* find all tag links with "href" attribute equal to the "href" constant */
-  const tagLinks = document.querySelectorAll('href');
-
-  /* START LOOP: for each found tag link */
-  for(let tagLink of tagLinks){
-    /* add class active */
-    tagLink.classList.add('active');
-  /* END LOOP: for each found tag link */
   }
-  /* execute function "generateTitleLinks" with article selector as argument */
-
-  generateTitleLinks('[data-tags~="' + tag + '"]');
-}
-
-function addClickListenersToTags(){
-  /* find all links to tags */
-  const tagLinks = document.querySelectorAll('a[href^="#tag-"]');
-
-  /* START LOOP: for each link */
-  for (let tagLink of tagLinks) {
-
-    /* add tagClickHandler as event listener for that link */
-
-    tagLink.addEventListener('click', tagClickHandler);
-  /* END LOOP: for each link */
-  }
-}
-addClickListenersToTags();
 
 
-function generateAuthors(){
+  class Product{
+    constructor(id, data){
+      const thisProduct = this;
 
-  /* [NEW] create a new variable allAuthors with an empty object */
-  let allAuthors = {};
+      this.id = id;
+      this.data = data;
 
-  /* [DONE] find all articles */
-  const articles = document.querySelectorAll(optArticleSelector);
 
-  /* [DONE] START LOOP: for every article: */
-  for(let article of articles){
+      thisProduct.renderInMenu();
+      thisProduct.getElements();
+      thisProduct.initAccordion();
+      thisProduct.initOrderForm();
+      thisProduct.initAmountWidget();
+      thisProduct.processOrder();
 
-    /* [DONE] find authors wrapper */
-    const titleAuthor = article.querySelector(optArticleAuthorSelector);
 
-    /* [DONE] make html variable with empty string */
-    let html = '';
-
-    /* get tags from data-author attribute */  
-    const author = article.getAttribute('data-author');
-
-    /* [DONE] generate HTML of the link */
-    //const linkHTML = '<li><a href="#author-' + author + '">' + author + '</a></li> ';
-    const authorLinkHTMLData = {id: author, authorName: author};
-    const authorLink = templates.authorLink(authorLinkHTMLData);
-
-    /* add generated code to html variable */
-    html = html + authorLink;
-
-    if(!allAuthors.hasOwnProperty(author)){
-      allAuthors[author] = 1;
-    } else {
-      allAuthors[author]++;
     }
-    titleAuthor.innerHTML = html;
+    getElements(){
+      const thisProduct = this;
+      thisProduct.accordionTrigger = thisProduct.element.querySelector(select.menuProduct.clickable);
+      thisProduct.form = thisProduct.element.querySelector(select.menuProduct.form);
+      thisProduct.formInputs = thisProduct.form.querySelectorAll(select.all.formInputs);
+      thisProduct.cartButton = thisProduct.element.querySelector(select.menuProduct.cartButton);
+      thisProduct.priceElem = thisProduct.element.querySelector(select.menuProduct.priceElem);
+      thisProduct.imageWrapper = thisProduct.element.querySelector(select.menuProduct.imageWrapper);
+      thisProduct.amountWidgetElem = thisProduct.element.querySelector(select.menuProduct.amountWidget);
+    }
+    renderInMenu(){
+      const thisProduct = this;
+      //
+      /* [DONE]generate HTML based on template */
+      const generatedHTML = templates.menuProduct(thisProduct.data);
+      /*[DONE] create element using utils.createElementFromHTML */
+      thisProduct.element = utils.createDOMFromHTML(generatedHTML);
+      /*[DONE] find menu container */
+      const menuContainer = document.querySelector(select.containerOf.menu);
+      /*[DONE] add element to menu */
+      menuContainer.appendChild(thisProduct.element);
+    }
+    initAccordion(){
+      const thisProduct = this;
+
+      /* [DONE]find the clickable trigger (the element that should react to clicking) -!NO NEEDED ANYMORE */
+      /*[DONE]START: add event listener to clickable trigger on event click */
+      thisProduct.accordionTrigger.addEventListener('click', function(event) {
+        /* prevent default action for event */
+        event.preventDefault();
+        /*[DONE] find active product (product that has active class) */
+        const activeProduct = document.querySelector(select.all.menuProductsActive);
+        /* if there is active product and it's not thisProduct.element, remove class active from it */
+         /* if there is active product and it's not thisProduct.element, remove class active from it */
+         if (activeProduct !== null && activeProduct != thisProduct.element ) {
+          activeProduct.classList.remove(classNames.menuProduct.wrapperActive);
+        }
+        /* toggle active class on thisProduct.element */
+        thisProduct.element.classList.toggle(classNames.menuProduct.wrapperActive);
+      });
+    }
+
+    initOrderForm(){
+      const thisProduct = this;
+      thisProduct.form.addEventListener('submit', function(event){
+        event.preventDefault();
+        thisProduct.processOrder();
+      });
+
+      for(let input of thisProduct.formInputs){
+        input.addEventListener('change', function(){
+          thisProduct.processOrder();
+        });
+      }
+      thisProduct.cartButton.addEventListener('click', function(event){
+        event.preventDefault();
+        thisProduct.processOrder();
+      });
+    }
+    initAmountWidget() {
+      const thisProduct = this;
+      thisProduct.amountWidget = new AmountWidget(thisProduct.amountWidgetElem);
+      this.amountWidgetElem.addEventListener('updated', event => {
+        event.preventDefault();
+       // console.log(thisProduct.amountWidget.value);
+        this.processOrder();
+
+      });
+    }
+    processOrder() {
+      const thisProduct = this;
+      // {DONE]covert form to object structure e.g. { sauce: ['tomato'], toppings: ['olives', 'redPeppers']}
+      const formData = utils.serializeFormToObject(thisProduct.form);
+      // {DONE]set price to default price
+      let price = thisProduct.data.price;
+      // {DONE]for every category (param)...
+      for(let paramId in thisProduct.data.params) {
+        // {DONE]determine param value, e.g. paramId = 'toppings', param = { label: 'Toppings', type: 'checkboxes'... }
+        const param = thisProduct.data.params[paramId];
+     // {DONE]for every option in this category
+
+for(let optionId in param.options) {
+  //[DONE] determine option value, e.g. optionId = 'olives', option = { label: 'Olives', price: 2, default: true }
+  const option = param.options[optionId]
+  const optionImage = thisProduct.imageWrapper.querySelector(`.${paramId}-${optionId}`);
+  if (optionImage != null) {
+  optionImage.classList.remove(classNames.menuProduct.imageVisible);
   }
+  //[DONE] check if there is param with a name of paramId in formData and if it includes optionId
+  let optionSelected = formData[paramId] && formData[paramId].includes(optionId);
 
-  const authorList = document.querySelector(optAuthorsListSelector);
-
-  let allAuthorsHTML = '';
-  for(let author in allAuthors){
-
-    const authorLinkHTML = '<li><a  href="#author-' + author + '">' + author + '</a></li>';
-    allAuthorsHTML += authorLinkHTML;
+  //[DONE] check if the option is not default
+    if(optionSelected) {
+      if(!option.default){
+      //[DONE] add option price to price variable
+      price += option.price;
+      }
+    if(optionImage){
+      optionImage.classList.add(classNames.menuProduct.imageVisible);
+    }
+      //[DONE] check if the option is default
+  } else if (option.default) {
+      //[DONE] reduce price variable
+      price -= option.price;
+      if (optionImage) {
+        optionImage.classList.remove(classNames.menuProduct.imageVisible);
+      }
+    }
   }
-  authorList.innerHTML = allAuthorsHTML;
 
 }
-generateAuthors();
+      //[DONE] update calculated price in the HTML
+      price *= thisProduct.amountWidget.value;
+      thisProduct.priceElem.innerHTML = price;
+    }
 
-function authorClickHandler(event){
-  /* prevent default action for this event */
-  event.preventDefault();
-  
-  /* make new constant named "clickedElement" and give it the value of "this" */
-  const clickedElement = this;
-  
-  /* make a new constant "href" and read the attribute "href" of the clicked element */
-  const href = clickedElement.getAttribute('href');
-  
-  /* make a new constant "author" and extract tag from the "href" constant */
-  const author = href.replace('#author-',''); 
-  
-  /* find all authors links with class active */
-  const activeAuthorLinks = document.querySelectorAll('a.active[href^="#author-"]');
-  
-  /* START LOOP: for each active Author link */
-  for(let activeAuthorLink of activeAuthorLinks){
-  
-    /* remove class active */
-    activeAuthorLink.classList.remove('active');
-  
-    /* END LOOP: for each active author */
+
   }
-  
-  /* find all author links with "href" attribute equal to the "href" constant */
-  const authorLinks = document.querySelectorAll('href');
-  
-  /* START LOOP: for each found author link */
-  for (let authorLink of authorLinks) {
-  /* add class active */
-    authorLink.classList.add('active');
-  
-    /* END LOOP: for each found tag link */
-  }
-  /* execute function "generateTitleLinks" with article selector as argument */
-  generateTitleLinks('[data-author~="' + author + '"]'); 
+  //Methods
+  const app = {
+      initData: function(){
+        const thisApp = this;
+        thisApp.data = dataSource;
+      },
+      initMenu(){
+        const thisApp = this;
+        for (let productData in thisApp.data.products) {
+          new Product(productData, thisApp.data.products[productData]);
+        }
+      },
+    init: function(){
+      const thisApp = this;
+      console.log('*** App starting ***');
+      console.log('thisApp:', thisApp);
+      console.log('classNames:', classNames);
+      console.log('settings:', settings);
+      console.log('templates:', templates);
+
+      thisApp.initData();
+      thisApp.initMenu();
+    }
+  };
+
+
+  app.init();
 }
-
-function addClickListenersToAuthors(){
-  /* find all links to authors */
-  const authorLinks = document.querySelectorAll('a[href^="#author-"]');
-  
-  /* START LOOP: for each link */
-  for (let authorLink of authorLinks) { 
-    /* add tagClickHandler as event listener for that link */  
-
-    authorLink.addEventListener('click', authorClickHandler);
-  
-    /* END LOOP: for each link */
-  }}
-addClickListenersToAuthors();
